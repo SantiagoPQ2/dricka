@@ -11,10 +11,7 @@ export function LoginPage() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
-  if (user) {
-    navigate('/dashboard', { replace: true })
-    return null
-  }
+  if (user) { navigate('/dashboard', { replace: true }); return null }
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
@@ -22,40 +19,31 @@ export function LoginPage() {
     setLoading(true)
     const { error } = await login(email, password)
     setLoading(false)
-    if (error) {
-      setError(error)
-    } else {
-      navigate('/dashboard')
-    }
+    if (error) setError(error)
+    else navigate('/dashboard')
   }
 
   return (
     <div className="login-root">
-      <div className="login-bg">
-        <div className="grid-overlay" />
-        <div className="blob blob-1" />
-        <div className="blob blob-2" />
-      </div>
-
       <div className="login-card">
-        <div className="login-header">
-          <div className="login-logo">
-            <span className="logo-bracket">[</span>
-            <span className="logo-text">APP</span>
-            <span className="logo-bracket">]</span>
-          </div>
-          <h1 className="login-title">Bienvenido</h1>
-          <p className="login-subtitle">Ingresá tus credenciales para continuar</p>
+        <div className="login-logo">
+          <div className="login-logo-icon">D</div>
+          <span className="login-logo-name">Dricka SAS</span>
         </div>
 
-        <form className="login-form" onSubmit={handleSubmit}>
-          <div className="field-group">
-            <label className="field-label" htmlFor="email">EMAIL</label>
+        <h1 className="login-title">Iniciar sesión</h1>
+        <p className="login-sub">Ingresá tus credenciales para continuar</p>
+
+        <form onSubmit={handleSubmit}>
+          {error && <div className="form-error">{error}</div>}
+
+          <div className="form-field">
+            <label className="form-label" htmlFor="email">Email</label>
             <input
               id="email"
-              className="field-input"
+              className="form-input"
               type="email"
-              placeholder="usuario@ejemplo.com"
+              placeholder="usuario@empresa.com"
               value={email}
               onChange={e => setEmail(e.target.value)}
               required
@@ -63,11 +51,11 @@ export function LoginPage() {
             />
           </div>
 
-          <div className="field-group">
-            <label className="field-label" htmlFor="password">CONTRASEÑA</label>
+          <div className="form-field">
+            <label className="form-label" htmlFor="password">Contraseña</label>
             <input
               id="password"
-              className="field-input"
+              className="form-input"
               type="password"
               placeholder="••••••••"
               value={password}
@@ -77,28 +65,10 @@ export function LoginPage() {
             />
           </div>
 
-          {error && (
-            <div className="error-box">
-              <span className="error-icon">⚠</span>
-              {error}
-            </div>
-          )}
-
-          <button className={`login-btn ${loading ? 'loading' : ''}`} type="submit" disabled={loading}>
-            {loading ? (
-              <span className="btn-spinner" />
-            ) : (
-              <>
-                <span>INGRESAR</span>
-                <span className="btn-arrow">→</span>
-              </>
-            )}
+          <button className="btn-primary" type="submit" disabled={loading}>
+            {loading ? 'Ingresando...' : 'Ingresar'}
           </button>
         </form>
-
-        <div className="login-footer">
-          <span className="footer-note">Sistema protegido · Anon Auth via Supabase</span>
-        </div>
       </div>
     </div>
   )

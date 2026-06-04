@@ -1,79 +1,70 @@
 import { useAuth } from '../lib/AuthContext'
 import { useNavigate, Link } from 'react-router-dom'
-import '../styles/dashboard.css'
+import '../styles/stock.css'
 
 export function DashboardPage() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
 
-  const handleLogout = () => { logout(); navigate('/login') }
-
-  const formatDate = (dateStr: string) =>
-    new Date(dateStr).toLocaleDateString('es-AR', { year: 'numeric', month: 'long', day: 'numeric' })
+  const formatDate = (d: string) => new Date(d).toLocaleDateString('es-AR', { year: 'numeric', month: 'long', day: 'numeric' })
 
   return (
-    <div className="dash-root">
-      <div className="dash-bg"><div className="grid-overlay" /></div>
-
-      <header className="dash-header">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '40px' }}>
-          <div className="dash-logo">
-            <span className="logo-bracket">[</span>
-            <span className="logo-text">APP</span>
-            <span className="logo-bracket">]</span>
+    <div className="app-shell">
+      <header className="topbar">
+        <Link to="/dashboard" className="topbar-brand">
+          <div className="brand-icon">D</div>
+          <span className="brand-name">Dricka SAS</span>
+        </Link>
+        <nav className="topbar-nav">
+          <Link to="/dashboard" className="tnav-link active">Inicio</Link>
+          <Link to="/stock"     className="tnav-link">Stock</Link>
+          <Link to="/ventas"    className="tnav-link">Ventas</Link>
+        </nav>
+        <div className="topbar-right">
+          <div className="user-chip">
+            <div className="user-avatar">{(user?.username?.[0] ?? '?').toUpperCase()}</div>
+            <span>{user?.username}</span>
           </div>
-          <nav style={{ display: 'flex', gap: '4px' }}>
-            <Link to="/dashboard" className="nav-link active" style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', fontWeight: 700, letterSpacing: '0.15em', color: 'var(--accent)', textDecoration: 'none', padding: '6px 14px', borderRadius: '2px', border: '1px solid rgba(232,255,71,0.3)', background: 'rgba(232,255,71,0.05)' }}>INICIO</Link>
-            <Link to="/stock"     style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', fontWeight: 700, letterSpacing: '0.15em', color: 'var(--text-muted)', textDecoration: 'none', padding: '6px 14px', borderRadius: '2px', border: '1px solid transparent', transition: 'all 0.2s' }}>STOCK</Link>
-            <Link to="/ventas"    style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', fontWeight: 700, letterSpacing: '0.15em', color: 'var(--text-muted)', textDecoration: 'none', padding: '6px 14px', borderRadius: '2px', border: '1px solid transparent', transition: 'all 0.2s' }}>VENTAS</Link>
-          </nav>
+          <button className="btn-logout" onClick={() => { logout(); navigate('/login') }}>Salir</button>
         </div>
-        <button className="logout-btn" onClick={handleLogout}>SALIR <span>→</span></button>
       </header>
 
-      <main className="dash-main">
-        <div className="welcome-banner">
-          <div className="welcome-tag">SESIÓN ACTIVA</div>
-          <h1 className="welcome-title">Hola, <em>{user?.username ?? user?.email}</em></h1>
-          <p className="welcome-sub">Sistema de gestión comercial · Dricka SAS</p>
+      <div className="page-container">
+        <div className="page-header">
+          <div className="breadcrumb">Inicio</div>
+          <div className="page-title">Bienvenido, {user?.username}</div>
+          <div className="page-desc" style={{ marginTop: 4 }}>Sistema de gestión comercial · Dricka SAS</div>
         </div>
 
-        <div className="info-grid" style={{ marginBottom: '40px' }}>
+        <div className="kpi-row" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))' }}>
           <Link to="/stock" style={{ textDecoration: 'none' }}>
-            <div className="info-card" style={{ cursor: 'pointer', borderColor: 'rgba(232,255,71,0.2)', background: 'rgba(232,255,71,0.03)' }}>
-              <span className="info-label">STOCK</span>
-              <span className="info-value" style={{ color: 'var(--accent)', fontSize: '13px' }}>Inventario valorizado</span>
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--text-muted)' }}>Cobertura · días stock · precios →</span>
+            <div className="kpi-card blue" style={{ cursor: 'pointer', padding: '24px' }}>
+              <div className="kpi-label">Stock</div>
+              <div className="kpi-value" style={{ fontSize: 16, fontWeight: 600, marginTop: 4 }}>Inventario valorizado</div>
+              <div className="kpi-note" style={{ marginTop: 8 }}>Cobertura de días · filtros por depósito y división · precios finales →</div>
             </div>
           </Link>
           <Link to="/ventas" style={{ textDecoration: 'none' }}>
-            <div className="info-card" style={{ cursor: 'pointer', borderColor: 'rgba(71,200,255,0.2)', background: 'rgba(71,200,255,0.03)' }}>
-              <span className="info-label">VENTAS</span>
-              <span className="info-value" style={{ color: 'var(--accent2)', fontSize: '13px' }}>Análisis por sucursal</span>
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--text-muted)' }}>Vendedores · top artículos →</span>
+            <div className="kpi-card green" style={{ cursor: 'pointer', padding: '24px' }}>
+              <div className="kpi-label">Ventas</div>
+              <div className="kpi-value" style={{ fontSize: 16, fontWeight: 600, marginTop: 4 }}>Análisis por sucursal</div>
+              <div className="kpi-note" style={{ marginTop: 8 }}>Facturación · ranking de vendedores · top artículos →</div>
             </div>
           </Link>
         </div>
 
-        <div className="info-grid">
-          <div className="info-card">
-            <span className="info-label">USUARIO</span>
-            <span className="info-value">{user?.username}</span>
-          </div>
-          <div className="info-card">
-            <span className="info-label">EMAIL</span>
-            <span className="info-value">{user?.email}</span>
-          </div>
-          <div className="info-card">
-            <span className="info-label">ROL</span>
-            <span className="info-value role-badge">{user?.role}</span>
-          </div>
-          <div className="info-card">
-            <span className="info-label">MIEMBRO DESDE</span>
-            <span className="info-value">{user?.created_at ? formatDate(user.created_at) : '—'}</span>
-          </div>
+        <div className="table-card" style={{ maxWidth: 480 }}>
+          <div className="table-card-header"><span className="table-card-title">Datos de sesión</span></div>
+          <table className="data-table">
+            <tbody>
+              <tr><td className="td-tag">Usuario</td><td style={{ fontWeight: 500 }}>{user?.username}</td></tr>
+              <tr><td className="td-tag">Email</td><td>{user?.email}</td></tr>
+              <tr><td className="td-tag">Rol</td><td>{user?.role}</td></tr>
+              <tr><td className="td-tag">Miembro desde</td><td>{user?.created_at ? formatDate(user.created_at) : '—'}</td></tr>
+            </tbody>
+          </table>
         </div>
-      </main>
+      </div>
     </div>
   )
 }
