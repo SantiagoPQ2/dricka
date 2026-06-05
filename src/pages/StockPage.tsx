@@ -36,11 +36,11 @@ function getBucket(dias: number | null, vta: number, bultos: number): Exclude<Bu
 }
 
 const BUCKETS: { key: Bucket; label: string; cls: string; desc: string }[] = [
-  { key: 'todos',       label: 'Todos',         cls: 'c-todos',  desc: '' },
-  { key: '0-7',         label: '0–7 días',      cls: 'c-0-7',    desc: 'Crítico' },
-  { key: '7-15',        label: '7–15 días',     cls: 'c-7-15',   desc: 'Alerta' },
-  { key: '15+',         label: '+15 días',      cls: 'c-15plus', desc: 'Normal' },
-  { key: 'inmovilizado',label: 'Inmovilizado',  cls: 'c-inmov',  desc: 'Sin ventas 20d' },
+  { key: 'todos',        label: 'Todos',        cls: 'c-todos',   desc: '' },
+  { key: '0-7',          label: '0–7 días',     cls: 'c-0-7',     desc: 'Crítico' },
+  { key: '7-15',         label: '7–15 días',    cls: 'c-7-15',    desc: 'Alerta' },
+  { key: '15+',          label: '+15 días',     cls: 'c-15plus',  desc: 'Normal' },
+  { key: 'inmovilizado', label: 'Inmovilizado', cls: 'c-inmov',   desc: 'Sin ventas 20d' },
 ]
 
 function num(n: number | null, d = 0) {
@@ -92,8 +92,8 @@ export function StockPage() {
   , [data, deposito])
 
   const kpis = useMemo(() => {
-    const totalBultos  = base.reduce((s, r) => s + r.cant_bultos, 0)
-    const valorizado   = base.reduce((s, r) => s + (r.valorizado ?? 0), 0)
+    const totalBultos = base.reduce((s, r) => s + r.cant_bultos, 0)
+    const valorizado  = base.reduce((s, r) => s + (r.valorizado ?? 0), 0)
     const counts: Record<Bucket, number> = { todos: base.length, '0-7': 0, '7-15': 0, '15+': 0, inmovilizado: 0 }
     base.forEach(r => { counts[getBucket(r.dias_stock, r.vta_diaria, r.cant_bultos)]++ })
     return { totalBultos, valorizado, counts }
@@ -133,9 +133,8 @@ export function StockPage() {
   function SI({ col }: { col: keyof StockRow }) {
     return <span className={`sort-ind ${sortCol === col ? 'on' : ''}`}>{sortCol === col ? (sortAsc ? '↑' : '↓') : '↕'}</span>
   }
-
   function diasPill(dias: number | null, b: string) {
-    const cls = b === '0-7' ? 'dias-0-7' : b === '7-15' ? 'dias-7-15' : b === '15+' ? 'dias-15plus' : 'dias-inmov'
+    const cls   = b === '0-7' ? 'dias-0-7' : b === '7-15' ? 'dias-7-15' : b === '15+' ? 'dias-15plus' : 'dias-inmov'
     const label = b === 'inmovilizado' ? 'Sin mov.' : dias !== null ? `${num(dias, 1)} d` : '—'
     return <span className={`dias-pill ${cls}`}>{label}</span>
   }
@@ -165,8 +164,6 @@ export function StockPage() {
       </header>
 
       <div className="page-container">
-
-        {/* Header */}
         <div className="page-header">
           <div className="breadcrumb">Gestión / Stock</div>
           <div className="page-header-inner">
@@ -177,7 +174,6 @@ export function StockPage() {
           </div>
         </div>
 
-        {/* KPIs */}
         <div className="kpi-row">
           <div className="kpi-card blue">
             <div className="kpi-label">Valorizado total</div>
@@ -206,7 +202,6 @@ export function StockPage() {
           </div>
         </div>
 
-        {/* Toolbar */}
         <div className="toolbar">
           <div className="field-group">
             <label className="field-label">Depósito</label>
@@ -228,14 +223,9 @@ export function StockPage() {
           </div>
         </div>
 
-        {/* Bucket segments */}
         <div className="segment-bar">
           {BUCKETS.map(b => (
-            <button
-              key={b.key}
-              className={`seg-btn ${b.cls} ${bucket === b.key ? 'active' : ''}`}
-              onClick={() => setBucket(b.key)}
-            >
+            <button key={b.key} className={`seg-btn ${b.cls} ${bucket === b.key ? 'active' : ''}`} onClick={() => setBucket(b.key)}>
               <span className="seg-dot" />
               <span>{b.label}</span>
               {b.desc && <span className="seg-desc">{b.desc}</span>}
@@ -244,7 +234,6 @@ export function StockPage() {
           ))}
         </div>
 
-        {/* Tabla */}
         <div className="table-card">
           <div className="table-card-header">
             <span className="table-card-title">Detalle por artículo</span>
@@ -254,6 +243,7 @@ export function StockPage() {
             <table className="data-table">
               <thead>
                 <tr>
+                  <th className="sortable" onClick={() => sort('id_deposito')}>Depósito <SI col="id_deposito" /></th>
                   <th className="sortable" onClick={() => sort('id_articulo')}>Código <SI col="id_articulo" /></th>
                   <th className="sortable" onClick={() => sort('ds_articulo')}>Artículo <SI col="ds_articulo" /></th>
                   <th className="sortable" onClick={() => sort('division')}>División <SI col="division" /></th>
@@ -271,12 +261,13 @@ export function StockPage() {
               </thead>
               <tbody>
                 {filtered.length === 0 && (
-                  <tr><td colSpan={13} className="td-empty">Sin resultados para los filtros aplicados</td></tr>
+                  <tr><td colSpan={14} className="td-empty">Sin resultados para los filtros aplicados</td></tr>
                 )}
                 {filtered.map((r, i) => {
                   const b = getBucket(r.dias_stock, r.vta_diaria, r.cant_bultos)
                   return (
                     <tr key={`${r.id_deposito}-${r.id_articulo}-${i}`}>
+                      <td className="td-tag">{r.ds_deposito || `Dep. ${r.id_deposito}`}</td>
                       <td className="td-code">{r.id_articulo}</td>
                       <td className="td-name">{r.ds_articulo || '—'}</td>
                       <td className="td-tag">{r.division || '—'}</td>
@@ -301,7 +292,6 @@ export function StockPage() {
             <span className="footer-total">Valorizado filtrado: <strong>{money(valorizadoFiltrado)}</strong></span>
           </div>
         </div>
-
       </div>
     </div>
   )
