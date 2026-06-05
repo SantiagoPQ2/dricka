@@ -549,3 +549,42 @@ body {
   .toolbar { flex-direction: column; align-items: stretch; }
   .topbar-brand .brand-name { display: none; }
 }
+
+/* ── Nuevos buckets 0-7 / 7-15 / 15+ ── */
+.c-0-7   .seg-dot { background: #dc2626; }
+.c-7-15  .seg-dot { background: #d97706; }
+.c-15plus .seg-dot { background: #16a34a; }
+
+.seg-btn.active.c-0-7    { background: var(--red-light);   border-color: var(--red-mid);   color: var(--red); }
+.seg-btn.active.c-7-15   { background: var(--amber-light); border-color: var(--amber-mid); color: var(--amber); }
+.seg-btn.active.c-15plus { background: var(--green-light); border-color: var(--green-mid); color: var(--green); }
+
+.dias-0-7    { background: var(--red-light);   color: var(--red);   border: 1px solid var(--red-mid); }
+.dias-7-15   { background: var(--amber-light); color: var(--amber); border: 1px solid var(--amber-mid); }
+.dias-15plus { background: var(--green-light); color: var(--green); border: 1px solid var(--green-mid); }
+.dias-inmov  { background: var(--gray-light);  color: var(--gray);  border: 1px solid var(--gray-mid); }
+
+/* ── Extras tabla ── */
+.td-bold { font-weight: 600; color: var(--text) !important; }
+
+.seg-desc {
+  font-size: 10px;
+  color: currentColor;
+  opacity: 0.65;
+  font-weight: 400;
+  letter-spacing: 0;
+}
+
+.table-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.footer-total {
+  font-size: 13px;
+  color: var(--text-2);
+}
+.footer-total strong {
+  color: var(--accent);
+  font-weight: 700;
+}
