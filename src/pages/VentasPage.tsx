@@ -49,21 +49,29 @@ function varPct(actual: number, anterior: number): { val: number; label: string;
   }
 }
 
-function esAnulado(anulado: string): boolean {
-  const a = String(anulado ?? '').toLowerCase().trim()
-  return a === 'si' || a === 'yes' || a === 'true' || a === '1' || a === 's'
-}
+async function fetchAllRows(d: string, h: string): Promise<VentaRow[]> {
+  const PAGE = 5000
+  let all: VentaRow[] = []
+  let from = 0
 
-function esNotaCredito(dsDocumento: string): boolean {
-  const doc = String(dsDocumento ?? '').toLowerCase()
-  return (
-    doc.includes('crédit') ||
-    doc.includes('credit') ||
-    doc.includes('devol') ||
-    doc.includes('nota de créd') ||
-    doc.includes('nc ')  ||
-    doc.startsWith('nc')
-  )
+  while (true) {
+    const { data, error } = await supabase
+      .from('chess_ventas')
+      .select('fecha_comprobante,id_sucursal,ds_sucursal,id_vendedor,ds_vendedor,id_articulo,ds_articulo,id_cliente,nombre_cliente,cantidades_total,subtotal_neto,subtotal_final,anulado,ds_documento')
+      .gte('fecha_comprobante', d)
+      .lte('fecha_comprobante', h)
+      .not('id_articulo', 'is', null)
+      .range(from, from + PAGE - 1)
+
+    if (error) throw new Error(error.message)
+    if (!data || data.length === 0) break
+
+    all = all.concat(data as VentaRow[])
+    if (data.length < PAGE) break
+    from += PAGE
+  }
+
+  return all
 }
 
 export function VentasPage() {
@@ -83,9 +91,6 @@ export function VentasPage() {
   const [loading,  setLoading]  = useState(true)
   const [error,    setError]    = useState<string | null>(null)
 
-  // Debug: valores distintos de anulado y ds_documento
-  const [debugInfo, setDebugInfo] = useState<{ anulados: string[]; documentos: string[] } | null>(null)
-
   const desdeAnt = useMemo(() => subtractMonth(desde, 1),  [desde])
   const hastaAnt = useMemo(() => subtractMonth(hasta,  1), [hasta])
   const dias     = useMemo(() => daysBetween(desde, hasta) + 1, [desde, hasta])
@@ -95,31 +100,17 @@ export function VentasPage() {
     setLoading(true)
     setError(null)
 
-    const q = (d: string, h: string) =>
-      supabase
-        .from('chess_ventas')
-        .select('fecha_comprobante,id_sucursal,ds_sucursal,id_vendedor,ds_vendedor,id_articulo,ds_articulo,id_cliente,nombre_cliente,cantidades_total,subtotal_neto,subtotal_final,anulado,ds_documento')
-        .gte('fecha_comprobante', d)
-        .lte('fecha_comprobante', h)
-        .not('id_articulo', 'is', null)
-
-    Promise.all([q(desde, hasta), q(desdeAnt, hastaAnt)])
+    Promise.all([
+      fetchAllRows(desde, hasta),
+      fetchAllRows(desdeAnt, hastaAnt),
+    ])
       .then(([r1, r2]) => {
-        if (r1.error) { setError(r1.error.message); return }
-        if (r2.error) { setError(r2.error.message); return }
-
-        const data1 = r1.data as VentaRow[]
-        const data2 = r2.data as VentaRow[]
-
-        // Debug info
-        const anulados   = [...new Set(data1.map(r => String(r.anulado ?? 'null')))]
-        const documentos = [...new Set(data1.map(r => String(r.ds_documento ?? 'null')))]
-        setDebugInfo({ anulados, documentos })
-        console.log('Valores anulado:', anulados)
-        console.log('Tipos de documento:', documentos)
-
-        setActual(data1)
-        setAnterior(data2)
+        setActual(r1)
+        setAnterior(r2)
+        setLoading(false)
+      })
+      .catch(e => {
+        setError(e.message)
         setLoading(false)
       })
   }, [desde, hasta, desdeAnt, hastaAnt])
@@ -134,13 +125,8 @@ export function VentasPage() {
     return sucursal === 'todas' ? rows : rows.filter(r => r.id_sucursal === Number(sucursal))
   }
 
-  // Filtro: sin anulados, sin notas de crédito
-  function filtrarValidas(rows: VentaRow[]) {
-    return rows.filter(r => !esAnulado(r.anulado) && !esNotaCredito(r.ds_documento))
-  }
-
-  const baseAct = useMemo(() => filtrarValidas(filterBySuc(actual)),   [actual,   sucursal])
-  const baseAnt = useMemo(() => filtrarValidas(filterBySuc(anterior)), [anterior, sucursal])
+  const baseAct = useMemo(() => filterBySuc(actual),   [actual,   sucursal])
+  const baseAnt = useMemo(() => filterBySuc(anterior), [anterior, sucursal])
 
   const kpis = useMemo(() => {
     const totalAct  = baseAct.reduce((s, r) => s + r.subtotal_final, 0)
@@ -162,14 +148,12 @@ export function VentasPage() {
   const porSucursal = useMemo(() => {
     const m = new Map<number, { id: number; nombre: string; act: number; ant: number; lineas: number; unidades: number; artMap: Map<string, number> }>()
     actual.forEach(r => {
-      if (esAnulado(r.anulado) || esNotaCredito(r.ds_documento)) return
       if (!m.has(r.id_sucursal)) m.set(r.id_sucursal, { id: r.id_sucursal, nombre: r.ds_sucursal, act: 0, ant: 0, lineas: 0, unidades: 0, artMap: new Map() })
       const s = m.get(r.id_sucursal)!
       s.act += r.subtotal_final; s.lineas++; s.unidades += r.cantidades_total
       s.artMap.set(r.ds_articulo, (s.artMap.get(r.ds_articulo) ?? 0) + r.cantidades_total)
     })
     anterior.forEach(r => {
-      if (esAnulado(r.anulado) || esNotaCredito(r.ds_documento)) return
       if (!m.has(r.id_sucursal)) m.set(r.id_sucursal, { id: r.id_sucursal, nombre: r.ds_sucursal, act: 0, ant: 0, lineas: 0, unidades: 0, artMap: new Map() })
       m.get(r.id_sucursal)!.ant += r.subtotal_final
     })
@@ -244,20 +228,12 @@ export function VentasPage() {
             <div>
               <div className="page-title">Análisis de ventas</div>
               <div className="page-desc">
-                Período actual vs. mismo período del mes anterior · facturas y remitos activos
+                Período actual vs. mismo período del mes anterior
               </div>
             </div>
           </div>
         </div>
 
-        {/* Debug info — sacalo cuando confirmes que los números son correctos */}
-        {debugInfo && (
-          <div style={{ background: '#fff3cd', border: '1px solid #ffc107', borderRadius: 6, padding: '10px 16px', marginBottom: 16, fontSize: 12, fontFamily: 'monospace' }}>
-            <strong>DEBUG</strong> — anulado: [{debugInfo.anulados.join(', ')}] · documentos: [{debugInfo.documentos.join(', ')}]
-          </div>
-        )}
-
-        {/* Toolbar */}
         <div className="toolbar">
           <div className="field-group">
             <label className="field-label">Desde</label>
@@ -281,7 +257,6 @@ export function VentasPage() {
           </div>
         </div>
 
-        {/* KPIs */}
         <div className="kpi-row">
           <div className="kpi-card blue">
             <div className="kpi-label">Total facturado</div>
@@ -314,7 +289,6 @@ export function VentasPage() {
           </div>
         </div>
 
-        {/* Panel con tabs */}
         <div className="table-card">
           <div className="atabs">
             {(['sucursal', 'vendedor', 'articulo'] as const).map(t => (
@@ -393,7 +367,6 @@ export function VentasPage() {
                 </div>
               </div>
             ))}
-
           </div>
         </div>
       </div>
