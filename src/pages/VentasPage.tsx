@@ -79,7 +79,7 @@ async function fetchAgrupaciones(): Promise<Agrupacion[]> {
   return (data ?? []) as Agrupacion[]
 }
 
-type Tab = 'resumen' | 'sucursal' | 'vendedor' | 'articulo' | 'division' | 'marca' | 'cliente' | 'devoluciones'
+type Tab = 'resumen' | 'sucursal' | 'articulo' | 'division' | 'marca' | 'cliente' | 'devoluciones'
 
 function KpiCard({ label, value, sub, subCls, note }: {
   label: string; value: string; sub?: string; subCls?: string; note?: string
@@ -102,7 +102,7 @@ function BarRow({ nombre, meta, act, ant, max, rank }: {
     <div className="v2-row">
       <div className="v2-row-left">
         {rank !== undefined && <span className="v2-rank">#{rank + 1}</span>}
-        <div>
+        <div style={{ minWidth: 0 }}>
           <div className="v2-row-name">{nombre}</div>
           {meta && <div className="v2-row-meta">{meta}</div>}
         </div>
@@ -222,20 +222,6 @@ export function VentasPage() {
     })).sort((a, b) => b.act - a.act)
   }, [ventasAct, ventasAnt])
 
-  const porVendedor = useMemo(() => {
-    const mA = new Map<string, { nombre: string; act: number; unid: number; clients: Set<number> }>()
-    const mB = new Map<string, number>()
-    ventasAct.forEach(r => {
-      const k = r.ds_vendedor || 'Sin asignar'
-      if (!mA.has(k)) mA.set(k, { nombre: k, act: 0, unid: 0, clients: new Set() })
-      const v = mA.get(k)!; v.act += r.subtotal_final; v.unid += r.cantidades_total; v.clients.add(r.id_cliente)
-    })
-    ventasAnt.forEach(r => { const k = r.ds_vendedor || 'Sin asignar'; mB.set(k, (mB.get(k) ?? 0) + r.subtotal_final) })
-    return Array.from(mA.values()).map(v => ({
-      nombre: v.nombre, act: v.act, unid: v.unid, clients: v.clients.size, ant: mB.get(v.nombre) ?? 0,
-    })).sort((a, b) => b.act - a.act).slice(0, 20)
-  }, [ventasAct, ventasAnt])
-
   const topArticulos = useMemo(() => {
     const mA = new Map<number, { id: number; nombre: string; act: number; unid: number }>()
     const mB = new Map<number, number>()
@@ -332,7 +318,6 @@ export function VentasPage() {
   )
 
   const maxSuc   = Math.max(...porSucursal.map(s => Math.max(s.act, s.ant)), 1)
-  const maxVend  = Math.max(...porVendedor.map(v => Math.max(v.act, v.ant)), 1)
   const maxArt   = Math.max(...topArticulos.map(a => Math.max(a.act, a.ant)), 1)
   const maxDiv   = Math.max(...porDivision.map(d => Math.max(d.act, d.ant)), 1)
   const maxMarca = Math.max(...porMarca.map(m => Math.max(m.act, m.ant)), 1)
@@ -341,7 +326,6 @@ export function VentasPage() {
   const TABS: { id: Tab; label: string; icon: string }[] = [
     { id: 'resumen',      label: 'Resumen',      icon: '◈' },
     { id: 'sucursal',     label: 'Sucursales',   icon: '⊞' },
-    { id: 'vendedor',     label: 'Vendedores',   icon: '◎' },
     { id: 'articulo',     label: 'Artículos',    icon: '⊡' },
     { id: 'division',     label: 'Divisiones',   icon: '◫' },
     { id: 'marca',        label: 'Marcas',       icon: '◉' },
@@ -390,14 +374,11 @@ export function VentasPage() {
         .v2-comp-label{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);}
         .v2-comp-val{font-size:13px;font-weight:600;color:var(--text);}
         .v2-comp-sub{font-size:11px;color:var(--text-muted);}
-        .v2-kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:24px;}
-        .v2-kpi{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow);position:relative;overflow:hidden;}
+        .v2-kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:24px;}
+        .v2-kpi{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px;box-shadow:var(--shadow);position:relative;overflow:hidden;}
         .v2-kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--border);}
-        .v2-kpi.accent::before{background:var(--accent);}
-        .v2-kpi.green::before{background:var(--green);}
-        .v2-kpi.blue::before{background:var(--accent2);}
         .v2-kpi-label{font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--text-muted);margin-bottom:8px;}
-        .v2-kpi-value{font-family:var(--font-head);font-size:22px;color:var(--text);letter-spacing:-.02em;}
+        .v2-kpi-value{font-family:var(--font-head);font-size:20px;color:var(--text);letter-spacing:-.02em;}
         .v2-kpi-sub{font-size:12px;margin-top:6px;}
         .v2-kpi-sub.pos{color:var(--green);}
         .v2-kpi-sub.neg{color:var(--red);}
@@ -417,25 +398,25 @@ export function VentasPage() {
         .v2-dot.ant{background:var(--border);border:1px solid #ccc;}
         .v2-row{display:flex;align-items:center;gap:16px;padding:14px 0;border-bottom:1px solid var(--border);}
         .v2-row:last-child{border-bottom:none;}
-        .v2-row-left{flex:0 0 280px;display:flex;align-items:center;gap:8px;min-width:0;}
-        .v2-rank{font-family:var(--font-mono);font-size:11px;color:var(--text-muted);min-width:28px;}
+        .v2-row-left{flex:0 0 260px;display:flex;align-items:center;gap:8px;min-width:0;overflow:hidden;}
+        .v2-rank{font-family:var(--font-mono);font-size:11px;color:var(--text-muted);min-width:28px;flex-shrink:0;}
         .v2-row-name{font-size:13px;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-        .v2-row-meta{font-size:11px;color:var(--text-muted);margin-top:2px;}
-        .v2-row-right{flex:1;display:flex;align-items:center;gap:16px;}
-        .v2-row-bars{flex:1;display:flex;flex-direction:column;gap:3px;}
+        .v2-row-meta{font-size:11px;color:var(--text-muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+        .v2-row-right{flex:1;display:flex;align-items:center;gap:16px;min-width:0;}
+        .v2-row-bars{flex:1;display:flex;flex-direction:column;gap:3px;min-width:0;}
         .v2-bar-track{height:5px;background:var(--bg);border-radius:2px;overflow:hidden;}
         .v2-bar-track.ant{opacity:.5;}
         .v2-bar-act{height:100%;background:var(--accent);border-radius:2px;transition:width .4s cubic-bezier(.4,0,.2,1);}
         .v2-bar-ant{height:100%;background:#bbb;border-radius:2px;transition:width .4s cubic-bezier(.4,0,.2,1);}
-        .v2-row-nums{display:flex;gap:12px;align-items:center;flex:0 0 340px;justify-content:flex-end;}
-        .v2-num-act{font-size:13px;font-weight:600;color:var(--text);min-width:110px;text-align:right;}
-        .v2-num-ant{font-size:12px;color:var(--text-muted);min-width:110px;text-align:right;}
+        .v2-row-nums{display:flex;gap:12px;align-items:center;flex-shrink:0;}
+        .v2-num-act{font-size:13px;font-weight:600;color:var(--text);min-width:120px;text-align:right;}
+        .v2-num-ant{font-size:12px;color:var(--text-muted);min-width:120px;text-align:right;}
         .v2-var{font-size:12px;font-weight:600;min-width:60px;text-align:right;}
         .v2-var.pos{color:var(--green);}
         .v2-var.neg{color:var(--red);}
         .v2-var.neutral{color:var(--text-muted);}
         .v2-resumen-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;}
-        .v2-resumen-card{background:var(--bg);border:1px solid var(--border);border-radius:2px;padding:20px;}
+        .v2-resumen-card{background:var(--bg);border:1px solid var(--border);border-radius:2px;padding:20px;min-width:0;}
         .v2-resumen-card-title{font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--text-muted);margin-bottom:16px;font-weight:600;}
         .v2-pct-bar-track{height:6px;background:var(--bg);border-radius:2px;overflow:hidden;margin-top:6px;}
         .v2-pct-bar-fill{height:100%;background:var(--red);border-radius:2px;}
@@ -443,11 +424,10 @@ export function VentasPage() {
         .v2-spinner{width:24px;height:24px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;}
         .v2-error{color:var(--red);font-size:14px;}
         @keyframes spin{to{transform:rotate(360deg);}}
-        @media(max-width:768px){
+        @media(max-width:900px){
           .v2-container{padding:16px;}
           .v2-resumen-grid{grid-template-columns:1fr;}
-          .v2-row-left{flex:0 0 160px;}
-          .v2-row-nums{flex:0 0 200px;}
+          .v2-row-left{flex:0 0 140px;}
           .v2-num-ant{display:none;}
         }
       `}</style>
@@ -505,13 +485,13 @@ export function VentasPage() {
           </div>
 
           <div className="v2-kpi-row">
-            <KpiCard label="Total facturado"    value={money(kpis.totalAct)}   sub={`${kpis.varTotal.label} vs. ${money(kpis.totalAnt)}`}     subCls={kpis.varTotal.cls} />
-            <KpiCard label="Neto sin IVA"       value={money(kpis.netoAct)}    note={`IVA: ${money(kpis.totalAct - kpis.netoAct)}`} />
-            <KpiCard label="Unidades vendidas"  value={fmt(kpis.unidAct)}      sub={`${kpis.varUnid.label} vs. ${fmt(kpis.unidAnt)}`}          subCls={kpis.varUnid.cls} />
-            <KpiCard label="Clientes únicos"    value={fmt(kpis.clientAct)}    sub={`${kpis.varClients.label} vs. ${fmt(kpis.clientAnt)}`}      subCls={kpis.varClients.cls} />
-            <KpiCard label="Ticket promedio"    value={money(kpis.ticketAct)}  sub={`${kpis.varTicket.label} vs. ${money(kpis.ticketAnt)}`}     subCls={kpis.varTicket.cls} />
+            <KpiCard label="Total facturado"     value={money(kpis.totalAct)}  sub={`${kpis.varTotal.label} vs. ${money(kpis.totalAnt)}`}    subCls={kpis.varTotal.cls} />
+            <KpiCard label="Neto sin IVA"        value={money(kpis.netoAct)}   note={`IVA: ${money(kpis.totalAct - kpis.netoAct)}`} />
+            <KpiCard label="Unidades vendidas"   value={fmt(kpis.unidAct)}     sub={`${kpis.varUnid.label} vs. ${fmt(kpis.unidAnt)}`}         subCls={kpis.varUnid.cls} />
+            <KpiCard label="Clientes únicos"     value={fmt(kpis.clientAct)}   sub={`${kpis.varClients.label} vs. ${fmt(kpis.clientAnt)}`}     subCls={kpis.varClients.cls} />
+            <KpiCard label="Ticket promedio"     value={money(kpis.ticketAct)} sub={`${kpis.varTicket.label} vs. ${money(kpis.ticketAnt)}`}    subCls={kpis.varTicket.cls} />
             <KpiCard label="Artículos distintos" value={fmt(kpis.artAct)}      note="en el período" />
-            <KpiCard label="Devoluciones"       value={money(kpis.devTotal)}   sub={`${kpis.devPct.toFixed(1)}% del total facturado`}           subCls={kpis.devPct > 5 ? 'neg' : 'neutral'} />
+            <KpiCard label="Devoluciones"        value={money(kpis.devTotal)}  sub={`${kpis.devPct.toFixed(1)}% del total`}                   subCls={kpis.devPct > 5 ? 'neg' : 'neutral'} />
           </div>
 
           <div className="v2-tabs-wrap">
@@ -532,28 +512,31 @@ export function VentasPage() {
                 </div>
               )}
 
+              {/* RESUMEN */}
               {tab === 'resumen' && (
                 <div className="v2-resumen-grid">
                   {[
-                    { title: 'Top 5 sucursales',  items: porSucursal.slice(0,5),  max: maxSuc,  key: 'id' },
-                    { title: 'Top 5 vendedores',  items: porVendedor.slice(0,5),  max: maxVend, key: 'nombre' },
-                    { title: 'Top 5 divisiones',  items: porDivision.slice(0,5),  max: maxDiv,  key: 'nombre' },
-                    { title: 'Top 5 artículos',   items: topArticulos.slice(0,5), max: maxArt,  key: 'id' },
-                  ].map(({ title, items, max, key }) => (
+                    { title: 'Top 5 sucursales', items: porSucursal.slice(0, 5), max: maxSuc,  keyField: 'id'  },
+                    { title: 'Top 5 divisiones', items: porDivision.slice(0, 5), max: maxDiv,  keyField: 'nombre' },
+                    { title: 'Top 5 artículos',  items: topArticulos.slice(0, 5), max: maxArt, keyField: 'id'  },
+                    { title: 'Top 5 marcas',     items: porMarca.slice(0, 5),    max: maxMarca, keyField: 'nombre' },
+                  ].map(({ title, items, max, keyField }) => (
                     <div key={title} className="v2-resumen-card">
                       <div className="v2-resumen-card-title">{title}</div>
                       {(items as any[]).map((item, i) => {
                         const vp = varPct(item.act, item.ant)
                         const nombre = item.nombre || item.ds_articulo || `#${item.id}`
                         return (
-                          <div key={item[key]} className="v2-row">
+                          <div key={item[keyField]} className="v2-row">
                             <div className="v2-row-left">
-                              <span className="v2-rank">#{i+1}</span>
+                              <span className="v2-rank">#{i + 1}</span>
                               <div className="v2-row-name">{nombre}</div>
                             </div>
                             <div className="v2-row-right">
                               <div className="v2-row-bars">
-                                <div className="v2-bar-track"><div className="v2-bar-act" style={{ width: `${(item.act/max)*100}%` }} /></div>
+                                <div className="v2-bar-track">
+                                  <div className="v2-bar-act" style={{ width: `${(item.act / max) * 100}%` }} />
+                                </div>
                               </div>
                               <div className="v2-row-nums">
                                 <span className="v2-num-act">{money(item.act)}</span>
@@ -572,12 +555,6 @@ export function VentasPage() {
                 <BarRow key={s.id} rank={i} nombre={s.nombre || `Sucursal ${s.id}`}
                   meta={`${fmt(s.unid)} unidades · ${fmt(s.clients)} clientes · Top: ${s.topArt}`}
                   act={s.act} ant={s.ant} max={maxSuc} />
-              ))}
-
-              {tab === 'vendedor' && porVendedor.map((v, i) => (
-                <BarRow key={v.nombre} rank={i} nombre={v.nombre}
-                  meta={`${money(v.clients > 0 ? v.act/v.clients : 0)} ticket prom · ${fmt(v.clients)} clientes · ${fmt(v.unid)} unidades`}
-                  act={v.act} ant={v.ant} max={maxVend} />
               ))}
 
               {tab === 'articulo' && topArticulos.map((a, i) => {
@@ -609,40 +586,40 @@ export function VentasPage() {
 
               {tab === 'devoluciones' && (
                 <div>
-                  <div style={{ display:'flex', gap:16, marginBottom:24, flexWrap:'wrap' }}>
-                    <div style={{ background:'#fff3f0', border:'1px solid #fca99a', borderRadius:3, padding:'16px 20px' }}>
-                      <div style={{ fontSize:10, textTransform:'uppercase', letterSpacing:'.1em', color:'var(--red)', marginBottom:6 }}>Total devuelto</div>
-                      <div style={{ fontSize:22, fontFamily:'Georgia,serif', color:'var(--red)' }}>{money(kpis.devTotal)}</div>
-                      <div style={{ fontSize:11, color:'var(--red)', marginTop:4 }}>{kpis.devPct.toFixed(2)}% del total facturado</div>
+                  <div style={{ display: 'flex', gap: 16, marginBottom: 24, flexWrap: 'wrap' }}>
+                    <div style={{ background: '#fff3f0', border: '1px solid #fca99a', borderRadius: 3, padding: '16px 20px' }}>
+                      <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '.1em', color: 'var(--red)', marginBottom: 6 }}>Total devuelto</div>
+                      <div style={{ fontSize: 22, fontFamily: 'Georgia,serif', color: 'var(--red)' }}>{money(kpis.devTotal)}</div>
+                      <div style={{ fontSize: 11, color: 'var(--red)', marginTop: 4 }}>{kpis.devPct.toFixed(2)}% del total facturado</div>
                     </div>
-                    <div style={{ background:'var(--bg)', border:'1px solid var(--border)', borderRadius:3, padding:'16px 20px' }}>
-                      <div style={{ fontSize:10, textTransform:'uppercase', letterSpacing:'.1em', color:'var(--text-muted)', marginBottom:6 }}>Comprobantes</div>
-                      <div style={{ fontSize:22, fontFamily:'Georgia,serif', color:'var(--text)' }}>{fmt(devuelAct.length)}</div>
-                      <div style={{ fontSize:11, color:'var(--text-muted)', marginTop:4 }}>líneas en el período</div>
+                    <div style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 3, padding: '16px 20px' }}>
+                      <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '.1em', color: 'var(--text-muted)', marginBottom: 6 }}>Comprobantes</div>
+                      <div style={{ fontSize: 22, fontFamily: 'Georgia,serif', color: 'var(--text)' }}>{fmt(devuelAct.length)}</div>
+                      <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>líneas en el período</div>
                     </div>
                   </div>
                   <div className="v2-comp-header">
                     <div className="v2-comp-col"><span className="v2-dot act" />{formatDate(desde)} – {formatDate(hasta)}</div>
                     <div className="v2-comp-col"><span className="v2-dot ant" />{formatDate(desdeAnt)} – {formatDate(hastaAnt)}</div>
-                    <div className="v2-comp-col" style={{ minWidth:60, justifyContent:'flex-end' }}>% ventas</div>
+                    <div className="v2-comp-col" style={{ minWidth: 60, justifyContent: 'flex-end' }}>% ventas</div>
                   </div>
                   {devolucionesPorSuc.map((d, i) => (
                     <div key={d.nombre} className="v2-row">
                       <div className="v2-row-left">
-                        <span className="v2-rank">#{i+1}</span>
-                        <div>
+                        <span className="v2-rank">#{i + 1}</span>
+                        <div style={{ minWidth: 0 }}>
                           <div className="v2-row-name">{d.nombre}</div>
                           <div className="v2-row-meta">{fmt(d.cant)} comprobantes</div>
                         </div>
                       </div>
                       <div className="v2-row-right">
-                        <div className="v2-row-bars" style={{ flex:1 }}>
+                        <div className="v2-row-bars">
                           <div className="v2-pct-bar-track">
-                            <div className="v2-pct-bar-fill" style={{ width:`${Math.min(d.pctVentas,100)}%` }} />
+                            <div className="v2-pct-bar-fill" style={{ width: `${Math.min(d.pctVentas, 100)}%` }} />
                           </div>
                         </div>
                         <div className="v2-row-nums">
-                          <span className="v2-num-act" style={{ color:'var(--red)' }}>{money(d.act)}</span>
+                          <span className="v2-num-act" style={{ color: 'var(--red)' }}>{money(d.act)}</span>
                           <span className="v2-num-ant">{money(d.ant)}</span>
                           <span className="v2-var neg">{d.pctVentas.toFixed(1)}%</span>
                         </div>
