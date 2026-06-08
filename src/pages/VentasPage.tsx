@@ -18,14 +18,13 @@ interface VentaRow {
   subtotal_neto: number
   subtotal_final: number
   anulado: string
+  ds_documento: string
 }
 
 function fmt(n: number, d = 0) { return n.toLocaleString('es-AR', { minimumFractionDigits: d, maximumFractionDigits: d }) }
 function money(n: number)      { return '$\u00A0' + n.toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) }
-
 function toISO(d: Date) { return d.toISOString().split('T')[0] }
 
-// Resta N meses a una fecha
 function subtractMonth(dateStr: string, months: number): string {
   const d = new Date(dateStr)
   d.setMonth(d.getMonth() - months)
@@ -40,7 +39,6 @@ function formatDate(d: string) {
   return new Date(d + 'T00:00:00').toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
-// Porcentaje de variación
 function varPct(actual: number, anterior: number): { val: number; label: string; cls: string } {
   if (anterior === 0) return { val: 0, label: '—', cls: '' }
   const v = ((actual - anterior) / anterior) * 100
@@ -51,38 +49,56 @@ function varPct(actual: number, anterior: number): { val: number; label: string;
   }
 }
 
+function esAnulado(anulado: string): boolean {
+  const a = String(anulado ?? '').toLowerCase().trim()
+  return a === 'si' || a === 'yes' || a === 'true' || a === '1' || a === 's'
+}
+
+function esNotaCredito(dsDocumento: string): boolean {
+  const doc = String(dsDocumento ?? '').toLowerCase()
+  return (
+    doc.includes('crédit') ||
+    doc.includes('credit') ||
+    doc.includes('devol') ||
+    doc.includes('nota de créd') ||
+    doc.includes('nc ')  ||
+    doc.startsWith('nc')
+  )
+}
+
 export function VentasPage() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
 
-  // Período actual: por defecto desde el 1ro del mes hasta hoy
-  const today = toISO(new Date())
+  const today        = toISO(new Date())
   const firstOfMonth = today.substring(0, 8) + '01'
 
-  const [desde, setDesde] = useState(firstOfMonth)
-  const [hasta, setHasta] = useState(today)
+  const [desde,    setDesde]    = useState(firstOfMonth)
+  const [hasta,    setHasta]    = useState(today)
   const [sucursal, setSucursal] = useState('todas')
-  const [tab, setTab] = useState<'sucursal' | 'vendedor' | 'articulo'>('sucursal')
+  const [tab,      setTab]      = useState<'sucursal' | 'vendedor' | 'articulo'>('sucursal')
 
-  const [actual, setActual] = useState<VentaRow[]>([])
+  const [actual,   setActual]   = useState<VentaRow[]>([])
   const [anterior, setAnterior] = useState<VentaRow[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [loading,  setLoading]  = useState(true)
+  const [error,    setError]    = useState<string | null>(null)
 
-  // Período anterior: mismo rango de días, mes anterior
-  const desdeAnt = useMemo(() => subtractMonth(desde, 1), [desde])
-  const hastaAnt = useMemo(() => subtractMonth(hasta, 1), [hasta])
+  // Debug: valores distintos de anulado y ds_documento
+  const [debugInfo, setDebugInfo] = useState<{ anulados: string[]; documentos: string[] } | null>(null)
+
+  const desdeAnt = useMemo(() => subtractMonth(desde, 1),  [desde])
+  const hastaAnt = useMemo(() => subtractMonth(hasta,  1), [hasta])
   const dias     = useMemo(() => daysBetween(desde, hasta) + 1, [desde, hasta])
 
   useEffect(() => {
     if (!desde || !hasta || desde > hasta) return
     setLoading(true)
+    setError(null)
 
     const q = (d: string, h: string) =>
       supabase
         .from('chess_ventas')
-        .select('fecha_comprobante,id_sucursal,ds_sucursal,id_vendedor,ds_vendedor,id_articulo,ds_articulo,id_cliente,nombre_cliente,cantidades_total,subtotal_neto,subtotal_final,anulado')
-        .eq('anulado', 'NO')
+        .select('fecha_comprobante,id_sucursal,ds_sucursal,id_vendedor,ds_vendedor,id_articulo,ds_articulo,id_cliente,nombre_cliente,cantidades_total,subtotal_neto,subtotal_final,anulado,ds_documento')
         .gte('fecha_comprobante', d)
         .lte('fecha_comprobante', h)
         .not('id_articulo', 'is', null)
@@ -91,8 +107,19 @@ export function VentasPage() {
       .then(([r1, r2]) => {
         if (r1.error) { setError(r1.error.message); return }
         if (r2.error) { setError(r2.error.message); return }
-        setActual(r1.data as VentaRow[])
-        setAnterior(r2.data as VentaRow[])
+
+        const data1 = r1.data as VentaRow[]
+        const data2 = r2.data as VentaRow[]
+
+        // Debug info
+        const anulados   = [...new Set(data1.map(r => String(r.anulado ?? 'null')))]
+        const documentos = [...new Set(data1.map(r => String(r.ds_documento ?? 'null')))]
+        setDebugInfo({ anulados, documentos })
+        console.log('Valores anulado:', anulados)
+        console.log('Tipos de documento:', documentos)
+
+        setActual(data1)
+        setAnterior(data2)
         setLoading(false)
       })
   }, [desde, hasta, desdeAnt, hastaAnt])
@@ -107,10 +134,14 @@ export function VentasPage() {
     return sucursal === 'todas' ? rows : rows.filter(r => r.id_sucursal === Number(sucursal))
   }
 
-  const baseAct = useMemo(() => filterBySuc(actual),  [actual,  sucursal])
-  const baseAnt = useMemo(() => filterBySuc(anterior), [anterior, sucursal])
+  // Filtro: sin anulados, sin notas de crédito
+  function filtrarValidas(rows: VentaRow[]) {
+    return rows.filter(r => !esAnulado(r.anulado) && !esNotaCredito(r.ds_documento))
+  }
 
-  // KPIs comparativos
+  const baseAct = useMemo(() => filtrarValidas(filterBySuc(actual)),   [actual,   sucursal])
+  const baseAnt = useMemo(() => filtrarValidas(filterBySuc(anterior)), [anterior, sucursal])
+
   const kpis = useMemo(() => {
     const totalAct  = baseAct.reduce((s, r) => s + r.subtotal_final, 0)
     const totalAnt  = baseAnt.reduce((s, r) => s + r.subtotal_final, 0)
@@ -123,21 +154,22 @@ export function VentasPage() {
       totalAct, totalAnt, netoAct,
       unidAct, unidAnt, clientAct, clientAnt,
       varTotal:   varPct(totalAct, totalAnt),
-      varUnid:    varPct(unidAct, unidAnt),
+      varUnid:    varPct(unidAct,  unidAnt),
       varClients: varPct(clientAct, clientAnt),
     }
   }, [baseAct, baseAnt])
 
-  // Por sucursal
   const porSucursal = useMemo(() => {
     const m = new Map<number, { id: number; nombre: string; act: number; ant: number; lineas: number; unidades: number; artMap: Map<string, number> }>()
     actual.forEach(r => {
+      if (esAnulado(r.anulado) || esNotaCredito(r.ds_documento)) return
       if (!m.has(r.id_sucursal)) m.set(r.id_sucursal, { id: r.id_sucursal, nombre: r.ds_sucursal, act: 0, ant: 0, lineas: 0, unidades: 0, artMap: new Map() })
       const s = m.get(r.id_sucursal)!
       s.act += r.subtotal_final; s.lineas++; s.unidades += r.cantidades_total
       s.artMap.set(r.ds_articulo, (s.artMap.get(r.ds_articulo) ?? 0) + r.cantidades_total)
     })
     anterior.forEach(r => {
+      if (esAnulado(r.anulado) || esNotaCredito(r.ds_documento)) return
       if (!m.has(r.id_sucursal)) m.set(r.id_sucursal, { id: r.id_sucursal, nombre: r.ds_sucursal, act: 0, ant: 0, lineas: 0, unidades: 0, artMap: new Map() })
       m.get(r.id_sucursal)!.ant += r.subtotal_final
     })
@@ -148,7 +180,6 @@ export function VentasPage() {
     })).sort((a, b) => b.act - a.act)
   }, [actual, anterior])
 
-  // Por vendedor
   const porVendedor = useMemo(() => {
     const mAct = new Map<string, number>()
     const mAnt = new Map<string, number>()
@@ -163,7 +194,6 @@ export function VentasPage() {
     })).sort((a, b) => b.act - a.act).slice(0, 15)
   }, [baseAct, baseAnt])
 
-  // Top artículos
   const topArticulos = useMemo(() => {
     const mAct = new Map<number, { id: number; nombre: string; unid: number; total: number }>()
     const mAnt = new Map<number, number>()
@@ -214,11 +244,18 @@ export function VentasPage() {
             <div>
               <div className="page-title">Análisis de ventas</div>
               <div className="page-desc">
-                Período actual vs. mismo período del mes anterior · solo comprobantes con venta
+                Período actual vs. mismo período del mes anterior · facturas y remitos activos
               </div>
             </div>
           </div>
         </div>
+
+        {/* Debug info — sacalo cuando confirmes que los números son correctos */}
+        {debugInfo && (
+          <div style={{ background: '#fff3cd', border: '1px solid #ffc107', borderRadius: 6, padding: '10px 16px', marginBottom: 16, fontSize: 12, fontFamily: 'monospace' }}>
+            <strong>DEBUG</strong> — anulado: [{debugInfo.anulados.join(', ')}] · documentos: [{debugInfo.documentos.join(', ')}]
+          </div>
+        )}
 
         {/* Toolbar */}
         <div className="toolbar">
@@ -288,8 +325,6 @@ export function VentasPage() {
           </div>
 
           <div className="apanel">
-
-            {/* Header comparativo */}
             <div className="comp-header">
               <div className="comp-col-act">
                 <span className="comp-dot dot-act" /> {formatDate(desde)} – {formatDate(hasta)}
@@ -314,8 +349,8 @@ export function VentasPage() {
                   </div>
                 </div>
                 <div className="bar-double-track">
-                  <div className="bar-double-act"  style={{ width: `${(s.act / maxSuc) * 100}%` }} />
-                  <div className="bar-double-ant"  style={{ width: `${(s.ant / maxSuc) * 100}%` }} />
+                  <div className="bar-double-act" style={{ width: `${(s.act / maxSuc) * 100}%` }} />
+                  <div className="bar-double-ant" style={{ width: `${(s.ant / maxSuc) * 100}%` }} />
                 </div>
               </div>
             ))}
